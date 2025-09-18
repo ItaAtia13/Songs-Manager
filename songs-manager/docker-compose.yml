@@ -1,0 +1,62 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: song-list-db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-songlist}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - song-list-network
+
+  backend:
+    build:
+      context: ./backend
+      target: development
+    container_name: song-list-backend
+    environment:
+      NODE_ENV: development
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-songlist}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-password}
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    volumes:
+      - ./backend/src:/app/src
+      - backend_uploads:/app/uploads
+    networks:
+      - song-list-network
+    depends_on:
+      - postgres
+
+  frontend:
+    build:
+      context: ./frontend
+      target: development
+    container_name: song-list-frontend
+    environment:
+      REACT_APP_API_URL: http://localhost:3000
+      CHOKIDAR_USEPOLLING: true
+    ports:
+      - "${FRONTEND_PORT:-3001}:3000"
+    volumes:
+      - ./frontend/src:/app/src
+    networks:
+      - song-list-network
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  backend_uploads:
+
+networks:
+  song-list-network:
+    driver: bridge
